@@ -35,7 +35,7 @@ conda create -n iqtree -c bioconda iqtree
 
 ## Usage
 
-ArboPhyl has four required inputs and three optional ones. The path to the input folder as well as the output folder are required, in addition to the mode (genome/proteins) and the segments of the pipeline which need to be executed. The lineage input is only required when performing busco related analyses (e.g., 0, 1 and 2), the shared parameter - percentage of BUSCO genes that need to be shared across all analysed species -is set to 100% by default, but can be lowered. The cpus parameter uses the automatic settings for each analysis by default but can be specified by the user as well. 
+ArboPhyl has four required inputs and three optional ones. The path to the input folder (containing either protein or nucleotide fasta files) as well as the output folder are required, in addition to the mode (genome/proteins) and the segments of the pipeline which need to be executed. The lineage input is only required when performing busco related analyses (e.g., 0, 1 and 2), the shared parameter - percentage of BUSCO genes that need to be shared across all analysed species -is set to 100% by default, but can be lowered. The cpus parameter uses the automatic settings for each analysis by default but can be specified by the user as well. 
 
 Note: ***It is important that the input and output folders remain the same if the pipeline is executed in multiple segments instead of all at once***
 ```
