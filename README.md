@@ -1,6 +1,6 @@
 # ArboPhyl
 
-ArboPhyl is a pipeline for building phylogenetic trees for the placement of species into their correct position in the fungal tree of life. It uses overlapping BUSCO genes between various species to determine their differences and builds a tree using IQTREE. The goal of this pipeline is to facilitate the process of running the multiple analyses required to build a tree automatically with only a starting input by the user. 
+ArboPhyl is a BUSCO based phylogenomics pipeline for the construction of phylogenetic trees from either nucleotide or protein fasta files. 
 
 ## Installation
 
