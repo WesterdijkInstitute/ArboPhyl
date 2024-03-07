@@ -56,21 +56,30 @@ def main():
                            required=False)
     argParser.add_argument("-s",
                            "--shared",
-                           type=int,
+                           type=float,
                            help="Percentage of BUSCOs that must be shared "\
                            "across analysed species (default: 100%%)",
                            required=False)
     argParser.add_argument("-c",
-                           "--cpus",
+                           "--complete",
+                           type=float,
+                           help="Required BUSCO completeness of genomes. "\
+                            "Keeps all sequences by default unless specified "\
+                            "otherwise (e.g., 98%%)",
+                           required=False)
+    argParser.add_argument("-t",
+                           "--threads",
                            type=str,
                            help="Number of CPUs for analyses, default: auto",
                            required=False)
 
     args = argParser.parse_args()
-    # Default parameter for shared BUSCOs
+    # Default parameter for shared BUSCOs & BUSCO completeness
     if not args.shared:
-        args.shared = 100
-
+        args.shared = 100.
+    if not args.complete:
+        args.complete = 0.
+    
     # Make sure each analysis runs only once, and split input
     args.pipeline = args.pipeline.split(",")
     if args.pipeline.__contains__("0"):
@@ -88,9 +97,12 @@ def main():
         if  args.pipeline.__contains__("0") \
             or args.pipeline.__contains__("1") \
             or args.pipeline.__contains__("6"):
-            print("\033[93m!!! BUSCO related parameters required " \
+            print("\033[93m!!! BUSCO related parameter required " \
                   "(lineage) !!!\033[00m")
             exit()
+    else:
+        # Remove case sensitivity
+        args.lineage = args.lineage.lower()
 
     # Shared percentage is required
     if not args.shared:
@@ -102,25 +114,30 @@ def main():
     # Run modules submitted in pipeline
     # Run BUSCO
     if args.pipeline.__contains__("0") or args.pipeline.__contains__("1"):
-        if not args.cpus:
-            args.cpus = "1"
+        if not args.threads:
+            args.threads = "1"
         print(subprocess.run(["bash", "-i", "ArboPhyl.sh", "busco", 
                               args.input, args.output, args.mode, 
-                              args.lineage, args.cpus]))
+                              args.lineage, args.threads]))
     
     # Run Filter BUSCOs
     if args.pipeline.__contains__("0") or args.pipeline.__contains__("2"):
         busco_dict = ap_analyses(output=args.output, 
-                                    mode=args.mode).get_BUSCOs()
+                                mode=args.mode,
+                                complete=args.complete).get_BUSCOs()
+        ap_analyses(complete=args.complete)\
+            .BUSCO_qc_screen(ap_analyses(output=args.output).BUSCO_qc())
         ap_analyses(output=args.output, shared=args.shared, mode=args.mode)\
             .filter_BUSCOs(ap_analyses.get_Overlap(busco_dict), busco_dict)
         
     # Run MAFFT Multiple sequence alignment
     if args.pipeline.__contains__("0") or args.pipeline.__contains__("3"):
-        if not args.cpus:
-            args.cpus = "-1"
-        os.makedirs(os.path.dirname(f"{args.output}/MAFFT_output/"), exist_ok=True)
-        print(subprocess.run(["bash", "-i", "ArboPhyl.sh", "mafft", args.output, args.cpus]))
+        if not args.threads:
+            args.threads = "-1"
+        os.makedirs(os.path.dirname(f"{args.output}/MAFFT_output/"), 
+                    exist_ok=True)
+        print(subprocess.run(["bash", "-i", "ArboPhyl.sh", "mafft", 
+                              args.output, args.threads]))
     
     # Run TrimAl on MSAs
     if args.pipeline.__contains__("0") or args.pipeline.__contains__("4"):
@@ -129,10 +146,10 @@ def main():
 
     # Run IQTREE model finder    
     if args.pipeline.__contains__("0") or args.pipeline.__contains__("5"):
-        if not args.cpus:
-            args.cpus = "AUTO"
+        if not args.threads:
+            args.threads = "AUTO"
         print(subprocess.run(["bash", "-i", "ArboPhyl.sh", "iqtree_models",
-                              args.output, args.cpus]))
+                              args.output, args.threads]))
     
     # Create partition file
     if args.pipeline.__contains__("0") or args.pipeline.__contains__("6"):
@@ -140,10 +157,10 @@ def main():
 
     # Run IQTREE 
     if args.pipeline.__contains__("0") or args.pipeline.__contains__("7"):
-        if not args.cpus:
-            args.cpus = "AUTO"
+        if not args.threads:
+            args.threads = "AUTO"
         print(subprocess.run(["bash", "-i", "ArboPhyl.sh", "iqtree",
-                              args.output, args.cpus]))
+                              args.output, args.threads]))
     
     title()
     print("Finished all processes, thank you for using "\

@@ -4,12 +4,14 @@
 based on BUSCO genes. 
 
 usage: arbophyl [-h] -i INPUT -o OUTPUT -p PIPELINE 
-[-m {genome,proteins,transcriptome}] [-l LINEAGE] [-s SHARED] [-c CPUS]
+[-m {genome,proteins,transcriptome}] [-l LINEAGE] [-s SHARED] [-c COMPLETE] 
+[-t THREADS]
 """
 
 """Import Statements"""
 import os
 import re
+import sys
 import glob
 from Bio import SeqIO
 
@@ -19,8 +21,8 @@ __author__ = "Tim Verschuren"
 __credits__ = ["Tim Verschuren", "Jérôme Collemare"]
 
 __licence__ = "MIT"
-__date__ = "22-02-2024"
-__version__ = "1.0.0"
+__date__ = "07-03-2024"
+__version__ = "1.1.0"
 __maintainer__ = "Tim Verschuren"
 __email__ = "t.verschuren@wi.knaw.nl"
 __status__ = "Development"
@@ -38,7 +40,7 @@ def progress_bar(progress: int, total: int):
     print(f"\r Progress: |{bar}| {round(percent)}%", end = "\r")
 
 
-def read_fasta(fasta_file) -> str:
+def read_fasta(fasta_file: str) -> str:
     """Read content of fasta file and store sequence as string.
 
     Attributes:
@@ -68,8 +70,8 @@ def auto_linebreak(string: str) -> str:
 class ap_analyses:
     """Class containing non-conda based analyses for ArboPhyl.
     """
-    def __init__(self, input= "", output="", mode="", 
-                 pipeline="", lineage="", shared=100) -> None:
+    def __init__(self, input= "", output="", mode="", pipeline="", 
+                 lineage="", shared=100., complete=0.) -> None:
         """Read the input settings of non-conda based analyses for ArboPhyl.
 
         Args:
@@ -79,8 +81,9 @@ class ap_analyses:
             pipeline (list, optional): List containing to be executed 
             ArboPhyl modules
             lineage (str, optional): Name of lineage used in BUSCO analysis.
-            shared (int, optional): Percentage of BUSCO genes that need to be 
+            shared (float, optional): Percentage of BUSCO genes that need to be 
             shared.
+            complete (float, optional): Minimum BUSCO completeness of genomes.
         """
         self.input = input
         self.output = output
@@ -88,6 +91,7 @@ class ap_analyses:
         self.pipeline = pipeline
         self.lineage = lineage
         self.shared = shared
+        self.complete = complete
 
     def get_BUSCOs(self) -> dict:
         """Retrieve paths of present BUSCO genes for each analysed species
@@ -98,7 +102,6 @@ class ap_analyses:
         """
         buscos_dict = {}
         print("Retrieving BUSCOs...\n")
-        progress = 0
 
         #Look for nucleotide or amino acid sequences
         if self.mode == "genome":
@@ -110,19 +113,22 @@ class ap_analyses:
         path = f"{self.output}BUSCO_output/"
         folders = os.listdir(path)
         # Get list of present single copy busco genes per analysed species
-        for folder in folders:
-            if not folder.__contains__("Filtered_BUSCOs") and\
-            not folder.__contains__("busco_downloads"):
-                buscos_dict[folder] = []
-                for file in os.listdir(glob.glob(
-                    f"{path}/{folder}/*_odb10/busco*/single*")[0]):
-                    if file.endswith(extention):
-                        buscos_dict[folder].append(glob.glob(
-                        f"{path}/{folder}/*_odb10/busco*/single*/{file}")[0])
-            progress += 1
+        for progress, folder in enumerate(folders, 1):
+            buscos_dict[folder] = []
+            # For each file that matches wildcards, add filepath to dict
+            for file in os.listdir(glob.glob(
+                f"{path}/{folder}/*_odb10/busco*/single*")[0]):
+                if file.endswith(extention):
+                    buscos_dict[folder].append(glob.glob(
+                    f"{path}/{folder}/*_odb10/busco*/single*/{file}")[0])
             progress_bar(progress, len(folders))
         print("\n")
-        
+
+        # Remove genomes with low completeness
+        for key, val in self.BUSCO_qc().items():
+            if val < self.complete:
+                del buscos_dict[key]
+
         return buscos_dict
 
     @staticmethod
@@ -151,7 +157,7 @@ class ap_analyses:
                    for k, v in overlap.items()}
         return overlap
 
-    def filter_BUSCOs(self, overlap: dict, buscos: dict):
+    def filter_BUSCOs(self, overlap: dict, buscos: dict) -> None:
         """Write overlapping BUSCOs to fasta files containing each species' 
         copy of one specific BUSCO gene
 
@@ -162,7 +168,13 @@ class ap_analyses:
             buscos (dict): Output of get_BUSCOs: Dictionary with species as the 
             key and a list of paths as its value
         """
-        progress = 0
+        # Check if any gene matches the shared percentage, else exit analysis.
+        if any(perc >= self.shared for perc in overlap.values()) == False:
+            sys.exit(f"\033[1;31mWARNING: No BUSCOs detected that matched the"\
+                        f" submitted shared percentage ({self.shared}%), "\
+                        f"please lower shared percentage to at least "\
+                        f"{max(overlap.values())}%.\033[00m\n")
+        
         print("Filtering BUSCOs...\n")
         # Path to output locations
         path = f"{self.output}/Filtered_BUSCOs/"
@@ -171,7 +183,7 @@ class ap_analyses:
 
         # Per passed gene, create a fasta file containing the shared
         # sequences between each species
-        for gene, value in overlap.items():
+        for progress, (gene, value) in enumerate(overlap.items(), 1):
             present_dict = {}
             if value >= self.shared:
                 # Determine analysis mode
@@ -179,6 +191,7 @@ class ap_analyses:
                     MS_file = gene.split("/")[-1].replace('.fna', '_MS.fna')
                 elif self.mode == "proteins":
                     MS_file = gene.split("/")[-1].replace('.faa', '_MS.faa')
+
                 # Determine which species have fasta files available
                 for species, busco_list in buscos.items():
                     if any(paths.endswith(gene) for paths in busco_list) \
@@ -211,14 +224,12 @@ class ap_analyses:
                                     MS_fasta.write(f">{species}\n")
                                     MS_fasta.write(auto_linebreak(gap))
                                     MS_fasta.write("\n")
-            progress += 1
             progress_bar(progress, len(overlap))
         print("\n")
 
     def create_partition(self) -> None:
         """Read models from iqtree files and write to partition file.
         """
-        progress = 0
         print("Creating partition file...\n")
 
         model_dict = {}
@@ -234,7 +245,7 @@ class ap_analyses:
         with open(f"{self.output}/{output_name}.nex", "w") as partition_file:
             partition_file.write("#nexus\nbegin sets;\n")
             # For each folder within Models, get names of files
-            for dir in os.listdir(path):
+            for progress, dir in enumerate(os.listdir(path), 1):
                 dir_name = dir.split("/")[-1]
                 if self.mode == "genome":
                     file_name = f"{dir.split('/')[-1]}_trimmed.fna"
@@ -252,15 +263,93 @@ class ap_analyses:
                             model_dict[dir] = (line.split(": ")[1])\
                                 .replace("\n", "")
                 # Update progress bar
-                progress += 1
                 progress_bar(progress, len(os.listdir(path))*2)
 
             partition_file.write("\tcharpartition mine = ")
+
             # For each dictionary entry, write used model to partition file
-            for key, value in model_dict.items():
+            for progress, (key, value) in enumerate(model_dict.items(), 
+                                                    progress+1):
                 partition_file.write(f"{value}:{key}, ")
-                progress += 1
                 progress_bar(progress, len(os.listdir(path))*2)
             partition_file.write(";\nend;")
             print("\n")
 
+    def BUSCO_qc(self) -> dict:
+        """_summary_
+
+        Returns:
+            dict: _description_
+        """
+        comp_dict = {}
+
+        # Get path of BUSCO outputs and create list of folders
+        path = f"{self.output}BUSCO_output/"
+        folders = os.listdir(path)
+        # Retrieve BUSCO completeness from analyses
+        for folder in folders:
+            for file in glob.glob(f"{path}/{folder}/*txt"):
+                with open(file, "r") as summary:
+                    completeness = summary.readlines()[8].split(":")[1]\
+                        .split("%")[0]
+                    comp_dict[folder] = float(completeness)
+
+        return comp_dict
+
+    def BUSCO_qc_screen(self, qc_dict: dict) -> None:
+        """Prints a window showing BUSCO completeness of genomes.
+
+        Args:
+            qc_dict (dict): Dictionary containing completeness scores of each
+            genome.
+        """
+        remove_list = []
+
+        # Assign colour codes
+        colours = {
+            "g": ["\033[92m", "\033[00m"],
+            "y": ["\033[93m", "\033[00m"],
+            "r": ["\033[91m", "\033[00m"]
+        }
+
+        # Set thresholds to defaults or submitted value
+        threshold = [95, 90] if self.complete == 0. \
+                    else [self.complete, self.complete]
+
+        # Determine the widths of the window frame
+        width = len(max(qc_dict, key=len))
+        frame_width = width + len(max([str(value) for value in \
+                                       qc_dict.values()], key=len)) + 9
+        
+        # Print header
+        print(f"{' '*((frame_width-28)//2)}BUSCO COMPLETENESS OF GENOMES")
+
+        # Print top part of window
+        print(f"+{'-'*(frame_width)}+")
+        # For each genome, determine if the quality score reaches a threshold
+        # and colour accordingly.
+        for key, val in qc_dict.items():
+            if val >= threshold[0]:
+                print(f"|  {colours['g'][0]}{key}"\
+                        f"{4*' ' + ' '*(width-len(key))}"\
+                        f"{val}%{colours['g'][1]}  |")
+            if val >= threshold[1] and val < threshold[0]:
+                print(f"|  {colours['y'][0]}{key}"\
+                        f"{4*' ' + ' '*(width-len(key))}"\
+                        f"{val}%{colours['y'][1]}  |")
+            if val < threshold[1]:
+                if self.complete != 0.:
+                    remove_list.append(key)
+                print(f"|  {colours['r'][0]}{key}"\
+                        f"{4*' ' + ' '*(width-len(key))}"\
+                        f"{val}%{colours['r'][1]}  |")
+        # Lower part of window
+        print(f"+{'-'*(frame_width)}+\n")
+
+        # If files need to be skipped, print names.
+        if self.complete != 0. and len(remove_list) > 0:
+            print(f"Skipping following genomes: {str(remove_list)[1:-1]}\n")
+        elif self.complete == 0.:
+            print(f"'Complete' option set to default, keeping all genomes.\n")
+
+        
