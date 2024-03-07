@@ -39,7 +39,7 @@ ArboPhyl has four required inputs and three optional ones. The path to the input
 
 Note: ***It is important that the input and output folders remain the same if the pipeline is executed in multiple segments instead of all at once.***
 ```
-usage: arbophyl [-h] -i INPUT -o OUTPUT -p PIPELINE -m {genome,proteins} [-l LINEAGE] [-s SHARED] [-c CPUS]
+usage: arbophyl [-h] -i INPUT -o OUTPUT -p PIPELINE -m {genome,proteins} [-l LINEAGE] [-s SHARED] [-c COMPLETE] [-t THREADS]
 
 ArboPhyl is a BUSCO based pipeline for the construction of phylogenetic trees.
 For more information see: https://github.com/WesterdijkInstitute/ArboPhyl
@@ -66,7 +66,10 @@ options:
                         BUSCO lineage (e.g., ascomycota)
   -s SHARED, --shared SHARED
                         Percentage of BUSCOs that must be shared across analysed species (default: 100%)
-  -c CPUS, --cpus CPUS  Number of CPUs for analyses, default: auto
+  -c COMPLETE, --complete COMPLETE
+                        Required BUSCO completeness of genomes. Keeps all sequences by default unless specified otherwise (e.g., 98%)
+  -t THREADS, --threads THREADS
+                        Number of CPUs for analyses, default: auto
 ```
 
 ## Author
