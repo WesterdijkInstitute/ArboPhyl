@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fhand:
 
 setuptools.setup(
     name="ArboPhyl",
-    version="v1.0.0",
+    version="v1.1.0",
     author="Tim Verschuren",
     author_email="t.verschuren@wi.knaw.nl",
     description= "ArboPhyl is a BUSCO based pipeline for the construction of\
