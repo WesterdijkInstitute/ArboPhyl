@@ -276,10 +276,11 @@ class ap_analyses:
             print("\n")
 
     def BUSCO_qc(self) -> dict:
-        """_summary_
+        """Determine BUSCO completeness of genomes
 
         Returns:
-            dict: _description_
+            dict: Dictionary with genomes as the key and completeness as the 
+            values
         """
         comp_dict = {}
 
