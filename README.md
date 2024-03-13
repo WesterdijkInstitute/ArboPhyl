@@ -21,7 +21,7 @@ pip install .
 The pipeline can be run on a local or server based linux environment with the [Anaconda](https://anaconda.org/) package manager installed. Once installed, the following tools need to be installed in their own environment:
 ```bash
 # install BUSCO
-conda create -n busco -c conda-forge -c bioconda busco=5.4.4
+conda create -n busco -c conda-forge -c bioconda busco=5.4.6
 
 # install MAFFT
 conda create -n mafft -c bioconda mafft
