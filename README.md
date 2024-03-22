@@ -4,7 +4,7 @@ ArboPhyl is a BUSCO based phylogenomics pipeline for the construction of phyloge
 
 ## Installation
 
-***Python 3.10 is required for installation!***
+***Python >3.10 is required for installation!***
 
 ArboPhyl can be installed by first cloning this GitHub repository. Subsequently, go into the location where the repository was saved and use pip to install the package.
 ```bash
